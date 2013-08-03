@@ -11,34 +11,47 @@
   
     Begin
     {
+        Write-Verbose "Creating new web client object to download $URL"
         $WebClient = New-Object System.Net.WebClient
+        # Used GUID generation to create unique SourceIdentifiers; Readded original identifiers and instead unregistered previously created events by this function.
+        #$Guid = [guid]::NewGuid()
     }
     
     Process
     {
         try 
         {
+            Write-Verbose "Attempting to download $URL using WebClient object"
             Register-ObjectEvent $WebClient DownloadProgressChanged -action {     
 
                 Write-Progress -Activity "Downloading" -Status `
                     ("{0} of {1}" -f $eventargs.BytesReceived, $eventargs.TotalBytesToReceive) `
                     -PercentComplete $eventargs.ProgressPercentage    
-            }
+            } | Out-Null
 
-            Register-ObjectEvent $client DownloadFileCompleted -SourceIdentifier Finished
-            $WebClient.DownloadFileAsync($URL, $LocalFile)
+            Register-ObjectEvent $WebClient DownloadFileCompleted -SourceIdentifier Finished #-SourceIdentifier $Guid
+            $WebClient.DownloadFileAsync($URL, $LocalFile) | Out-Null
 
             # optionally wait, but you can break out and it will still write progress
-            Wait-Event -SourceIdentifier Finished
+            Wait-Event -SourceIdentifier Finished | Out-Null #guid
+
+            
 
         } 
         finally 
         { 
             $WebClient.dispose()
+            Get-EventSubscriber | Unregister-Event
+            #Get-Event | Unregister-Event
+            Write-Progress -Activity "$URL download complete..." -Completed
         }
     }
-    End{}
+    End
+    {
+        if (Test-Path $LocalFile) {Get-ChildItem $LocalFile}
+    }
 }
+
 
 
 
